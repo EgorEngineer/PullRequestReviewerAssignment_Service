@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'pullrequest_service_api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['pullrequest_service_api:8080']

@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  DB_PostgreSQL:
+    image: postgres:16-alpine
+    container_name: DB_PostgreSQL
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pullrequest-db-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  SEQ:
+    image: datalust/seq:latest
+    container_name: SEQ
+    restart: unless-stopped
+    environment:
+      - ACCEPT_EULA=Y
+      - SEQ_FIRSTRUN_NOAUTHENTICATION=true
+    ports:
+      - "5341:80"
+    volumes:
+      - pullrequest-seq-data:/data
+    networks:
+      - app-network
+
+  pullrequest_service_api:
+    container_name: PullRequest_ServiceAPI
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - DB_PostgreSQL
+      - SEQ
+    environment:
+    - ASPNETCORE_ENVIRONMENT=Development
+    - ASPNETCORE_URLS=http://+:8080
+    - POSTGRES_HOST=${POSTGRES_HOST}
+    - POSTGRES_PORT=${POSTGRES_PORT}
+    - POSTGRES_USER=${POSTGRES_USER}
+    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    - POSTGRES_DB=${POSTGRES_DB}
+    - SEQ_URL=http://SEQ:5341
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - app-network
+
+  grafana:
+    image: grafana/grafana:9.5.0
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_LOGIN}            
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}  
+      - GF_USERS_ALLOW_SIGN_UP=false 
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+    depends_on:
+      - prometheus
+
+volumes:
+  pullrequest-db-data:
+    driver: local
+  pullrequest-seq-data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
