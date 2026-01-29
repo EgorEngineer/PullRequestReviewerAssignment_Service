@@ -5,7 +5,7 @@
 ## Быстрый старт
 
 ```bash
-git clone [<repository-url>](https://github.com/EgorEngineer/PullRequestReviewerAssignment_Service.git)
+git clone https://github.com/EgorEngineer/PullRequestReviewerAssignment_Service.git
 cd reviewer-assignment
 docker-compose up --build
 ```
